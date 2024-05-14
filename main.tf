@@ -17,5 +17,5 @@ data "azurerm_client_config" "current" {}
 #Create Resource Group
 resource "azurerm_resource_group" "test" {
   name     = "testing"
-  location = "us east"
+  location = "eastus"
 }
