@@ -6,19 +6,24 @@ terraform {
     key                   = "terraform.tfstate"
   }
 }
-resource "azurerm_resource_group" "opendataplatform" {
-  name     = "OpenDataPlatform"
-  location = "East US"
-}
 terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "=3.0.0"
-    }
+  required_version = ">= 1.5.7"
+  backend "azurerm" {
+    resource_group_name  = "thomasthorntoncloud"
+    storage_account_name = "thomasthorntontfstate"
+    container_name       = "github-thomasthorntoncloud-terraform-example"
+    key                  = "github-thomasthorntoncloud-terraform-example.tfstate"
   }
 }
-data "azurerm_client_config" "current" {}
+ 
 provider "azurerm" {
   features {}
+}
+ 
+data "azurerm_client_config" "current" {}
+ 
+#Create Resource Group
+resource "azurerm_resource_group" "tamops" {
+  name     = "github-thomasthorntoncloud-terraform-example"
+  location = "uksouth"
 }
