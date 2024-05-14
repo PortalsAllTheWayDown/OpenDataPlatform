@@ -70,14 +70,6 @@ jobs:
         creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
 
     # Configure Azure Remote Backend (replace details with yours)
-    - name: Configure Azure Backend
-      run: |
-        terraform remote add azure \
-          --backend-config-file=.tfrcfg \
-          azureRM \
-          resource_group_name="state" \
-          storage_account_name="stateforterraform" \
-          container_name="state"
 
     - name: Terraform Init
       run: terraform init
