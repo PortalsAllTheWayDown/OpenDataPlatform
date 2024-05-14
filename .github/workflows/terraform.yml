@@ -75,9 +75,9 @@ jobs:
         terraform remote add azure \
           --backend-config-file=.tfrcfg \
           azureRM \
-          resource_group_name="your-resource-group" \
-          storage_account_name="your-storage-account" \
-          container_name="your-container-name"
+          resource_group_name="state" \
+          storage_account_name="stateforterraform" \
+          container_name="state"
 
     - name: Terraform Init
       run: terraform init
