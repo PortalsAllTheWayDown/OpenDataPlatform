@@ -27,13 +27,6 @@ jobs:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v2
- 
-    - name: 'Terraform Format'
-      uses: hashicorp/terraform-github-actions@master
-      with:
-        tf_actions_version: ${{ env.TF_VERSION }}
-        tf_actions_subcommand: 'fmt'
-        tf_actions_working_dir: "./terraform"
          
     - name: 'Terraform Init'
       uses: hashicorp/terraform-github-actions@master
