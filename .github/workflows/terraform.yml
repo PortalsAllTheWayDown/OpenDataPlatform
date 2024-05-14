@@ -50,7 +50,6 @@ jobs:
         tf_actions_working_dir: "./terraform"
  
     - name: Terraform Apply
-      environment: 'apply'
       if: github.ref == 'refs/heads/main'
       uses: hashicorp/terraform-github-actions@master
       with:
