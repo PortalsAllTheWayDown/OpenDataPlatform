@@ -1,12 +1,36 @@
 from flask import Flask, jsonify, request
+import duckdb
+import pandas as pd
+
+
+CSV_FILE_PATH = "data/airbnb-listings.csv"
+
+
 
 # initializes flask
 app = Flask(__name__)
 
+
+@app.before_first_request
+def initialize_database():
+
+    app.config['DB_CONNECTION'] = duckdb.connect('data/airbnb.duckdb')
+
+    #if the specified file in the connection above already exists, we won't load the CSV data again
+    app.config['DB_CONNECTION'].execute(f"CREATE TABLE IF NOT EXISTS listings AS SELECT * FROM read_csv('{CSV_FILE_PATH}', delim=';', header=true, ignore_errors=true)")
+
+
+@app.teardown_appcontext
+def close_session():
+
+    if app.config['DB_CONNECTION'] is not None:
+        app.config['DB_CONNECTION'].close()
+
+
 # A simple route that returns a welcome message
-@app.route('/')
+@app.route('/sample')
 def hello_world():
-    return 'Hello, World!'
+    return app.config['DB_CONNECTION'].execute("SELECT * FROM listings SAMPLE 5").df()
 
 # A route that echoes back the data sent in a POST request
 @app.route('/echo', methods=['POST'])
