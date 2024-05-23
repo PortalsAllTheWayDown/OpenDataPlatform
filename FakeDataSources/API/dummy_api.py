@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 import duckdb
 import pandas as pd
-import datetime as dt
+from datetime import datetime as dt, timedelta
 from faker import Faker
 import random
 
@@ -12,25 +12,40 @@ CSV_FILE_PATH = "data/airbnb-listings.csv"
 # is proportional to real Airbnb proportions: 
 # REF: https://www.searchlogistics.com/learn/statistics/airbnb-statistics/#:~:text=There%20are%20currently%20over%205,booked%20over%201.5%20billion%20stays
 BOOKING_SCALE = 1
-CUSTOMER_SCALE = .1
+CUSTOMER_SCALE = .1 # the number of customers is about a tenth of the number of bookings
 HOST_SCALE = .0033
 LISTING_SCALE = .0053
+
 
 
 # initializes flask
 app = Flask(__name__)
 
+#initialize Faker
+fake = Faker()
+
+app.config["REQUEST_TIMESTAMP"] = dt.now() 
+
 # prepare the data prior to fulfilling the request
 @app.before_request
 def initialize_database():
 
+    # establish DB connection
     app.config['DB_CONNECTION'] = duckdb.connect('data/airbnb.duckdb')
+    
+    # set the volume scale to the default of Medium
     app.config['BASE_RECORD_SCALE'] = set_volume_scale()
 
-    #if the specified file in the connection above already exists, we won't load the CSV data again
+    # save request time to session var
+    app.config["REQUEST_TIMESTAMP"] = dt.now()
+
+    # if the specified file in the connection above already exists, we won't load the CSV data again
     app.config['DB_CONNECTION'].execute(f"""
         CREATE TABLE IF NOT EXISTS listings AS 
-        SELECT * FROM read_csv('{CSV_FILE_PATH}', delim=';', header=true, ignore_errors=true)
+        SELECT 
+            *
+            ,COALESCE("Last Scraped"||' 00:00:00', '{app.config["REQUEST_TIMESTAMP"].strftime("%Y-%m-%d %H:%M:%S")}') as last_modified_ts
+        FROM read_csv('{CSV_FILE_PATH}', delim=';', header=true, ignore_errors=true)
     """)
 
     # create hosts table
@@ -52,7 +67,7 @@ def initialize_database():
             ,"Host Listings Count"
             ,"Host Total Listings Count"
             ,"Host Verifications"
-            ,"{dt.now()}" as last_modified_ts
+            ,last_modified_ts
         FROM listings                              
     """)    
 
@@ -90,9 +105,7 @@ def initialize_database():
         )
     """)
 
-    #print(app.config['DB_CONNECTION'].fetch_df().to_json(orient='records'))
-
-def set_volume_scale(size):
+def set_volume_scale(size='M'):
 
     match size:
 
@@ -117,7 +130,7 @@ def set_volume_scale(size):
 
     app.config['BASE_RECORD_SCALE'] = base_record_scale
 
-def generate_data(low_watermark, high_watermark=dt.now()):
+def generate_data(low_watermark=app.config["REQUEST_TIMESTAMP"] - timedelta(hours=1), high_watermark=app.config["REQUEST_TIMESTAMP"]):
     """
     Stochastically generates data for each concept (Host, Customer, Listing, Booking). Volume is dependent on the 
     BASE_RECORD_SCALE config variable, and each concept's volume is scaled based on <concept>_SCALE. Data is 
@@ -146,7 +159,14 @@ def generate_customers():
 
     num_records = app.config["BASE_RECORD_SCALE"] * CUSTOMER_SCALE * variance
 
-    for record in range(num_records):
+    new_customers = {
+        'id': [random.randint(10000000, 99999999) for _ in range(num_records)], # collisions are possible on the ID, but that's okay because they will be treated as updates
+        'fname': [fake_or_none(fake.first_name, null_probability=.2) for _ in range(num_records)],
+        'lname': [fake_or_none(fake.last_name, null_probability=.2) for _ in range(num_records)],
+        'email': [fake_or_none(fake.email(), null_probability=.1) for _ in range(num_records)],
+        'phone': [fake_or_none(fake.phone_number(), null_probability=.3) for _ in range(num_records)],
+        #'rating': [fake_or_none(fake., null_probability=.3) for _ in range(num_records)],
+    }
 
 
 
@@ -159,6 +179,21 @@ def generate_bookings():
 def generate_listings():
     pass
 
+def fake_or_none(fake_func, null_probability=0.1):
+    """
+    Generate a fake value or None. Simulates NULLs in the database.
+
+    Parameters:
+    fake_func (callable): The Faker function to generate the value.
+    null_probability (float): The probability of returning None. Default is 0.1 (10%).
+
+    Returns:
+    The generated fake value or None.
+    """
+    if random.random() < null_probability:
+        return None
+    return fake_func()
+
 @app.teardown_appcontext
 def close_session(context):
 
@@ -167,7 +202,7 @@ def close_session(context):
 
 
 @app.route('/sample', methods=['GET'])
-def hello_world():
+def sample():
     app.config['DB_CONNECTION'].execute("SELECT * FROM listings USING SAMPLE 5")
     return app.config['DB_CONNECTION'].fetch_df().to_json(orient='records')
 
